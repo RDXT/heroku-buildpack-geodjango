@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# Parameters
+BUILD_DIR=$1
+CACHE_DIR="${2}/${STACK}"
+
+# Setup profile file
+PROFILE_PATH="$BUILD_DIR/.profile.d/geo.sh"
+mkdir -p $(dirname $PROFILE_PATH)
+
 indent() {
   sed -u 's/^/       /'
 }
