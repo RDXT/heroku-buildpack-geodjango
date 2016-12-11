@@ -1,0 +1,99 @@
+#!/bin/bash
+
+indent() {
+  sed -u 's/^/       /'
+}
+
+set-env() {
+  echo "export $1=$2" >> $PROFILE_PATH
+}
+
+download_package() {
+  name="$1"
+  version="$2"
+  location="$3"
+
+  mkdir -p $location
+  package="https://rdxt-heroku.s3.amazonaws.com/$name-$version.tar.gz"
+  echo $package
+  curl $package -s -o - | tar xzf - -C $location
+}
+
+###############################################################
+# GEOS, PROJ4 and GDAL
+###############################################################
+GEOS_VERSION=3.6.0
+PROJ_VERSION=4.9.3
+GDAL_VERSION=1.11.1
+
+###############################################################
+# GEOS
+###############################################################
+echo "-----> Using geos version: ${GEOS_VERSION}" | indent
+if [ ! -d $CACHE_DIR/geos ]; then
+  echo "-----> Fetching, caching and installing geos" | indent
+  download_package "geos" "${GEOS_VERSION}" "${CACHE_DIR}/geos"
+fi
+
+mkdir -p $BUILD_DIR/.geodjango
+cp -R $CACHE_DIR/geos $BUILD_DIR/.geodjango
+echo "-----> Installed" | indent
+
+export GEOS_LIBRARY_DIR=$BUILD_DIR/.geodjango/geos
+export GEOS_LIBRARY_PATH=$GEOS_LIBRARY_DIR/lib/libgeos_c.so
+echo "-----> GEOS installed and accessible with env variable 'GEOS_LIBRARY_PATH'" | indent
+
+###############################################################
+# PROJ4
+###############################################################
+echo "-----> Using proj version: ${PROJ_VERSION}" | indent
+
+if [ ! -d $CACHE_DIR/proj4 ]; then
+  # Download and extract proj4 into target vendor directory.
+  echo "-----> Fetching, caching and installing proj" | indent
+  download_package "proj" "${PROJ_VERSION}" "${CACHE_DIR}/proj4"
+fi
+
+mkdir -p $BUILD_DIR/.geodjango
+cp -R $CACHE_DIR/proj4 $BUILD_DIR/.geodjango
+echo "-----> Installed" | indent
+
+export PROJ4_LIBRARY_DIR=$BUILD_DIR/.geodjango/proj4
+export PROJ4_LIBRARY_PATH=$PROJ4_LIBRARY_DIR/lib/libproj.so
+echo "-----> Proj.4 installed and accessible with env variable 'PROJ4_LIBRARY_PATH'" | indent
+
+###############################################################
+# GDAL
+###############################################################
+echo "-----> Using gdal version: ${GDAL_VERSION}" | indent
+
+if [ ! -d $CACHE_DIR/gdal ]; then
+  echo "-----> Fetching, caching and installing gdal" | indent
+  download_package "gdal" "${GDAL_VERSION}" "${CACHE_DIR}/gdal"
+fi
+
+mkdir -p $BUILD_DIR/.geodjango
+cp -R $CACHE_DIR/gdal $BUILD_DIR/.geodjango
+echo "-----> Installed" | indent
+
+export GDAL_LIBRARY_DIR=$BUILD_DIR/.geodjango/gdal
+export GDAL_LIBRARY_PATH=$GDAL_LIBRARY_DIR/lib/libgdal.so
+export GDAL_DATA_PATH=$GDAL_LIBRARY_DIR/share/gdal
+echo "-----> GDAL installed and accessible with env variable 'GDAL_LIBRARY_PATH'" | indent
+
+###############################################################
+# GeoLite
+###############################################################
+cd $1
+mkdir -p vendor
+MAXMIND=https://geolite.maxmind.com/download/geoip/database
+echo "-----> Fetching GeoLiteCity IPv4"
+curl -L --silent $MAXMIND/GeoLiteCity.dat.gz | gzip -d -c > vendor/GeoLiteCity.dat
+echo "-----> Fetching GeoLiteCity IPv6"
+curl -L --silent $MAXMIND/GeoLiteCityv6-beta/GeoLiteCityv6.dat.gz | gzip -d -c > vendor/GeoLiteCityv6.dat
+
+set-env GEOS_LIBRARY_PATH $GEOS_LIBRARY_PATH
+set-env GDAL_LIBRARY_PATH $GDAL_LIBRARY_PATH
+set-env GDAL_DATA_PATH $GDAL_DATA_PATH
+set-env LIBRARY_PATH /app/.heroku/vendor/lib:/app/.heroku/python/lib
+set-env LD_LIBRARY_PATH "/app/.heroku/vendor/lib:/app/.heroku/python/lib:$GEOS_LIBRARY_DIR/lib:$PROJ4_LIBRARY_DIR/lib:$GDAL_LIBRARY_DIR/lib"':$LD_LIBRARY_PATH'

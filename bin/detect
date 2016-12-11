@@ -1,0 +1,7 @@
+#!/bin/bash
+
+echo "GEOS"
+echo "PROJ4"
+echo "GDAL"
+echo "Geolite"
+exit 0
